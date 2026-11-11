@@ -89,18 +89,18 @@ const FinishedStockList = () => {
 
   // Define columns for the table
   const columns = [
-    {
-      id: "sl_no",
-      header: "Sl. No.",
-      cell: ({ row, table }) => {
-        const { pageIndex, pageSize } = table.getState().pagination;
-        return (
-          <span className="font-semibold text-stone-700 text-xs">
-            {pageIndex * pageSize + row.index + 1}
-          </span>
-        );
-      },
-    },
+    // {
+    //   id: "sl_no",
+    //   header: "Sl. No.",
+    //   cell: ({ row, table }) => {
+    //     const { pageIndex, pageSize } = table.getState().pagination;
+    //     return (
+    //       <span className="font-semibold text-stone-700 text-xs">
+    //         {pageIndex * pageSize + row.index + 1}
+    //       </span>
+    //     );
+    //   },
+    // },
     {
       accessorKey: "work_order_rc_sub_barcode",
       id: "T Code",
@@ -119,14 +119,14 @@ const FinishedStockList = () => {
         <span className="text-stone-700">{row.getValue("Brand")}</span>
       ),
     },
-    {
-      accessorKey: "work_order_sub_length",
-      id: "Length",
-      header: "Length",
-      cell: ({ row }) => (
-        <span className="text-stone-700">{row.getValue("Length")}</span>
-      ),
-    },
+    // {
+    //   accessorKey: "work_order_sub_length",
+    //   id: "Length",
+    //   header: "Length",
+    //   cell: ({ row }) => (
+    //     <span className="text-stone-700">{row.getValue("Length")}</span>
+    //   ),
+    // },
     {
       accessorKey: "total_received",
       id: "Received",
@@ -170,9 +170,8 @@ const FinishedStockList = () => {
         const balance = row.getValue("Balance");
         return (
           <span
-            className={`font-semibold ${
-              balance > 0 ? "text-stone-800" : "text-stone-400"
-            }`}
+            className={`font-semibold ${balance > 0 ? "text-stone-800" : "text-stone-400"
+              }`}
           >
             {balance}
           </span>
@@ -237,11 +236,8 @@ const FinishedStockList = () => {
         {/* Unified Top Header & Actions Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 bg-[#FDFBF7] border border-stone-200/80 px-5 py-3.5 rounded-2xl shadow-2xs">
           <div>
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-[#A27B5C]">
-              Inventory & Stock
-            </span>
             <h1 className="font-heading text-lg font-bold text-stone-800 tracking-tight leading-none mt-0.5">
-              Work Order Final Stock List
+              Inventory   Stock
             </h1>
           </div>
 
@@ -308,9 +304,9 @@ const FinishedStockList = () => {
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                       </TableHead>
                     ))}
                   </TableRow>

@@ -46,7 +46,7 @@ import BASE_URL from "@/config/BaseUrl";
 
 // Zod schema for validation
 const formSchema = z.object({
-  work_order_sa_dc_no: z.string().min(1, "Packing Slip No is required"),
+  work_order_sa_dc_no: z.string().optional(),
   work_order_sa_dc_date: z.string().optional(),
   work_order_sa_box: z.union([z.string(), z.number()]).optional(),
   work_order_sa_pcs: z.union([
@@ -845,13 +845,11 @@ const EditSales = () => {
       toast({
         variant: "destructive",
         title: "Pieces Count Mismatch",
-        description: `Total No of Pcs is set to ${currentPcs}, but you have ${currentCount} T-Code barcode${
-          currentCount === 1 ? "" : "s"
-        }. Please ${
-          currentCount < currentPcs
+        description: `Total No of Pcs is set to ${currentPcs}, but you have ${currentCount} T-Code barcode${currentCount === 1 ? "" : "s"
+          }. Please ${currentCount < currentPcs
             ? `add ${currentPcs - currentCount} more T-Code${currentPcs - currentCount > 1 ? "s" : ""}`
             : `remove ${currentCount - currentPcs} T-Code${currentCount - currentPcs > 1 ? "s" : ""}`
-        } before updating, or adjust Total No of Pcs to ${currentCount}.`,
+          } before updating, or adjust Total No of Pcs to ${currentCount}.`,
       });
       return;
     }
@@ -948,9 +946,8 @@ const EditSales = () => {
   if (isError) {
     return (
       <ErrorComponent
-        message={`Error Fetching Work Order Sales Data: ${
-          error?.message || "Unknown error"
-        }`}
+        message={`Error Fetching Work Order Sales Data: ${error?.message || "Unknown error"
+          }`}
         refetch={refetch}
       />
     );
@@ -1112,17 +1109,18 @@ const EditSales = () => {
               )}
             </div>
 
-            {/* Packing Slip No */}
+            {/* Temp Manual Packing No */}
             <div className="space-y-1.5">
               <Label
                 htmlFor="work_order_sa_dc_no"
                 className="text-xs font-semibold text-stone-700 flex items-center gap-1"
               >
                 <Hash className="h-3.5 w-3.5 text-stone-400" />
-                Packing Slip No <span className="text-red-500">*</span>
+                Manual Packing Slip No
               </Label>
               <Input
                 id="work_order_sa_dc_no"
+                placeholder="Enter  Manual Packing slip No"
                 name="work_order_sa_dc_no"
                 value={workorder.work_order_sa_dc_no}
                 onChange={onInputChange}
@@ -1171,13 +1169,12 @@ const EditSales = () => {
             {/* Status Counter Badge & Clear All */}
             <div className="flex items-center gap-2">
               <div
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
-                  isComplete
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${isComplete
                     ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs"
                     : items.length > 0
-                    ? "bg-amber-50 text-amber-800 border-amber-300"
-                    : "bg-stone-100 text-stone-600 border-stone-200"
-                }`}
+                      ? "bg-amber-50 text-amber-800 border-amber-300"
+                      : "bg-stone-100 text-stone-600 border-stone-200"
+                  }`}
               >
                 {isComplete ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -1410,11 +1407,10 @@ const EditSales = () => {
 
                 <div className="flex flex-col items-center justify-center">
                   <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      confirmUpdateDialog.addedCount >= 0
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${confirmUpdateDialog.addedCount >= 0
                         ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
                         : "bg-amber-100 text-amber-700 border border-amber-200"
-                    }`}
+                      }`}
                   >
                     {confirmUpdateDialog.addedCount >= 0
                       ? `+${confirmUpdateDialog.addedCount} Added`

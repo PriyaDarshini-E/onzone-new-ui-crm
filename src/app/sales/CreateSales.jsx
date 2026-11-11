@@ -54,7 +54,7 @@ const orderSchema = z.object({
     z.string().min(1, "Retailer is required"),
     z.number().min(1, "Retailer is required"),
   ]),
-  work_order_sa_dc_no: z.string().min(1, "Packing Slip No is required"),
+  work_order_sa_dc_no: z.string().optional(),
   work_order_sa_dc_date: z.string().optional(),
   work_order_sa_box: z.union([z.string(), z.number()]).optional(),
   work_order_sa_pcs: z.union([
@@ -291,8 +291,8 @@ const customSelectStyles = {
     backgroundColor: state.isSelected
       ? "#543D2B"
       : state.isFocused
-      ? "#F5F2EB"
-      : "transparent",
+        ? "#F5F2EB"
+        : "transparent",
     color: state.isSelected ? "#FFFFFF" : "#1C1917",
     fontSize: "0.75rem",
     fontWeight: state.isSelected ? "600" : "500",
@@ -673,7 +673,7 @@ const CreateSales = () => {
   return (
     <Page>
       <div className="w-full space-y-4 max-w-7xl mx-auto pt-1">
-        
+
         {/* Top Header Card */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FDFBF7] border border-stone-200/80 px-5 py-3 rounded-2xl shadow-2xs">
           <div>
@@ -742,7 +742,7 @@ const CreateSales = () => {
             {/* Packing Date */}
             <div className="space-y-1.5">
               <Label htmlFor="salesDate" className="text-xs font-semibold text-stone-700 flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5 text-stone-400" />
+                {/* <Calendar className="h-3.5 w-3.5 text-stone-400" /> */}
                 Packing Date <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -837,15 +837,15 @@ const CreateSales = () => {
               )}
             </div>
 
-            {/* Packing Slip No */}
+            {/* Temp Manual Packing No */}
             <div className="space-y-1.5">
               <Label htmlFor="packingSlipNo" className="text-xs font-semibold text-stone-700 flex items-center gap-1">
                 <Hash className="h-3.5 w-3.5 text-stone-400" />
-                Packing Slip No <span className="text-red-500">*</span>
+                Manual Packing Slip No
               </Label>
               <Input
                 id="packingSlipNo"
-                placeholder="Enter Packing Slip No"
+                placeholder="Enter  Manual Packing slip No"
                 name="work_order_sa_dc_no"
                 value={workorder.work_order_sa_dc_no}
                 onChange={onInputChange}
@@ -904,7 +904,7 @@ const CreateSales = () => {
 
         {/* Section 2: Interactive T-Code Barcode Scanning & Verification Panel */}
         <div className="bg-[#FDFBF7] border border-stone-200/80 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4">
-          
+
           {/* Header with Live Progress Badge */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200/70 pb-3">
             <div className="flex items-center gap-2">
@@ -924,13 +924,12 @@ const CreateSales = () => {
             {/* Status Counter Badge & Clear All */}
             <div className="flex items-center gap-2">
               <div
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
-                  isComplete
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs"
-                    : barcodes.length > 0
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${isComplete
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs"
+                  : barcodes.length > 0
                     ? "bg-amber-50 text-amber-800 border-amber-300"
                     : "bg-stone-100 text-stone-600 border-stone-200"
-                }`}
+                  }`}
               >
                 {isComplete ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
