@@ -384,13 +384,125 @@ const DcReceiptReceived = () => {
 
     sortedBoxesSelected.forEach((box, index) => {
       const headerRowIndex = wsData.length;
-      wsData.push([`Box ${box}`]); // This cell will be styled
+      const boxData = groupedBoxesForDialog[box] || { totalPcs: 0 };
+      const isBoxReceived = isBoxReceivedCheck(box);
+      const breakdown = getBoxBreakdown(box, boxData.totalPcs);
+
+      const boxExpectedPcs = boxData.totalPcs || 0;
+      let boxReceivedPcs = 0;
+      let boxMissingPcs = boxExpectedPcs;
+      let boxHeaderTitle = `Box ${box}`;
+      let boxOverallStatus = "Not Received";
+
+      if (isBoxReceived) {
+        if (!breakdown.isVerified) {
+          boxReceivedPcs = boxExpectedPcs;
+          boxMissingPcs = 0;
+          boxOverallStatus = "Completely Received";
+          boxHeaderTitle = `Box ${box} - Completely Received (${boxExpectedPcs}/${boxExpectedPcs} Pcs)`;
+        } else {
+          boxReceivedPcs = breakdown.matched || 0;
+          boxMissingPcs = breakdown.missing || 0;
+          if (boxMissingPcs > 0) {
+            boxOverallStatus = `Partially Received (${boxMissingPcs} Missing)`;
+            boxHeaderTitle = `Box ${box} - Partially Received (${boxReceivedPcs}/${boxExpectedPcs} Pcs Received, ${boxMissingPcs} Missing)`;
+          } else if (breakdown.extra > 0) {
+            boxOverallStatus = `Completely Received (+${breakdown.extra} Extra)`;
+            boxHeaderTitle = `Box ${box} - Completely Received (+${breakdown.extra} Extra Pcs)`;
+          } else {
+            boxOverallStatus = "Completely Received";
+            boxHeaderTitle = `Box ${box} - Completely Received (${boxExpectedPcs}/${boxExpectedPcs} Pcs)`;
+          }
+        }
+      } else {
+        boxHeaderTitle = `Box ${box} - Not Received`;
+      }
+
+      wsData.push([boxHeaderTitle]); // This cell will be styled
       styleMap[headerRowIndex] = { bold: true, fontSize: 14 };
 
-      wsData.push(["Barcode", "Size", "MRP", "Quantity"]);
+      wsData.push([
+        "Barcode",
+        "Size",
+        "MRP",
+        "Quantity",
+        "Received Qty",
+        "Missing Qty",
+        "Status",
+      ]);
+
       grouped[box].forEach((row) => {
-        wsData.push([row.barcode, row.size, row.amount, row.quantity]);
+        const expectedQty = row.quantity || 0;
+        let receivedQty = 0;
+        let missingQty = expectedQty;
+        let status = "Not Received";
+
+        if (isBoxReceived) {
+          if (!breakdown.isVerified) {
+            receivedQty = expectedQty;
+            missingQty = 0;
+            status = "Received";
+          } else {
+            const scannedQty = breakdown.scannedCounts?.[row.barcode] ?? 0;
+            receivedQty = scannedQty;
+            missingQty = Math.max(0, expectedQty - scannedQty);
+            if (scannedQty === expectedQty) {
+              status = "Received";
+            } else if (scannedQty === 0) {
+              status = "Not Received";
+            } else if (scannedQty < expectedQty) {
+              status = `Partially Received (${scannedQty}/${expectedQty})`;
+            } else {
+              status = `Received (+${scannedQty - expectedQty} Extra)`;
+            }
+          }
+        }
+
+        wsData.push([
+          row.barcode,
+          row.size,
+          row.amount,
+          expectedQty,
+          receivedQty,
+          missingQty,
+          status,
+        ]);
       });
+
+      // Extra items verified for this box that were not in the original list
+      if (breakdown.isVerified && Array.isArray(breakdown.items)) {
+        breakdown.items
+          .filter(
+            (item) =>
+              (item.expectedQty === 0 || !item.expectedQty) &&
+              item.scannedQty > 0 &&
+              !grouped[box].some((r) => r.barcode === item.barcode),
+          )
+          .forEach((extraItem) => {
+            wsData.push([
+              extraItem.barcode,
+              extraItem.size || "-",
+              extraItem.amount || "-",
+              0,
+              extraItem.scannedQty,
+              0,
+              `Extra Added (+${extraItem.scannedQty})`,
+            ]);
+          });
+      }
+
+      // Box Total Summary Row
+      const totalRowIndex = wsData.length;
+      wsData.push([
+        `Box ${box} Total`,
+        "",
+        "",
+        boxExpectedPcs,
+        boxReceivedPcs,
+        boxMissingPcs,
+        boxOverallStatus,
+      ]);
+      styleMap[totalRowIndex] = { bold: true, fontSize: 11 };
 
       if (index < sortedBoxesSelected.length - 1) {
         wsData.push([]); // blank row as separator
@@ -402,32 +514,37 @@ const DcReceiptReceived = () => {
 
     // Set column widths
     ws["!cols"] = [
-      { wch: 18 }, // Key / Barcode
-      { wch: 22 }, // Value / Size
-      { wch: 5 }, // Spacer
-      { wch: 18 }, // Right key
-      { wch: 22 }, // Right value
+      { wch: 18 }, // Barcode / Key
+      { wch: 18 }, // Size / Value
+      { wch: 12 }, // MRP / Spacer
+      { wch: 14 }, // Quantity / Right key
+      { wch: 15 }, // Received Qty / Right value
+      { wch: 14 }, // Missing Qty
+      { wch: 28 }, // Status
     ];
 
-    // --- Apply styling to box headers ---
+    // --- Apply styling to box headers and totals ---
     const range = XLSX.utils.decode_range(ws["!ref"]);
     for (let r = range.s.r; r <= range.e.r; r++) {
       if (styleMap[r]) {
-        const cellAddress = XLSX.utils.encode_cell({ r: r, c: 0 });
-        if (ws[cellAddress]) {
-          if (!ws[cellAddress].s) ws[cellAddress].s = {};
-          ws[cellAddress].s.font = {
-            bold: true,
-            sz: 24, // font size 14
-          };
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: r, c: c });
+          if (ws[cellAddress]) {
+            if (!ws[cellAddress].s) ws[cellAddress].s = {};
+            ws[cellAddress].s.font = {
+              bold: true,
+              sz: styleMap[r].fontSize === 14 ? 24 : 11,
+            };
+          }
         }
       }
     }
 
-    // Increase row height for those header rows
+    // Increase row height for those rows
     if (!ws["!rows"]) ws["!rows"] = [];
     Object.keys(styleMap).forEach((rowIdx) => {
-      ws["!rows"][parseInt(rowIdx)] = { hpt: 26 }; // 26 points tall
+      const isHeader = styleMap[rowIdx]?.fontSize === 14;
+      ws["!rows"][parseInt(rowIdx)] = { hpt: isHeader ? 26 : 20 };
     });
 
     // Create workbook and save
@@ -1375,6 +1492,11 @@ const DcReceiptReceived = () => {
 
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-stone-100 text-stone-800 text-xs font-semibold border border-stone-200">
                               Total Pcs: <strong className="text-stone-900 font-bold">{boxData.totalPcs}</strong>
+                              {breakdown.isVerified && (
+                                <span className="text-stone-600 font-normal ml-1">
+                                  ({breakdown.matched} Received{breakdown.missing > 0 ? `, ${breakdown.missing} Missing` : ""}{breakdown.extra > 0 ? `, +${breakdown.extra} Extra` : ""})
+                                </span>
+                              )}
                             </span>
 
                             <div className="print-hidden-custom flex items-center gap-1.5">
@@ -1388,7 +1510,7 @@ const DcReceiptReceived = () => {
                                   {breakdown.isVerified && breakdown.missing > 0 && (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md bg-amber-50 text-amber-800 border border-amber-300">
                                       <AlertTriangle className="h-3 w-3 text-amber-600" />
-                                      Partially Received
+                                      Partially Received ({breakdown.missing} Missing)
                                     </span>
                                   )}
 
@@ -1490,7 +1612,14 @@ const DcReceiptReceived = () => {
                                           </td>
                                           <td className="border-stone-200 print:border p-2 print:p-1 text-center text-xs">
                                             {!isVerified ? (
-                                              <span className="text-stone-400 text-xs font-medium">-</span>
+                                              isBoxReceived ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                  Received
+                                                </span>
+                                              ) : (
+                                                <span className="text-stone-400 text-xs font-medium">-</span>
+                                              )
                                             ) : scannedQty === expectedQty ? (
                                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />

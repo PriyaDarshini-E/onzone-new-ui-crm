@@ -206,18 +206,18 @@ const ReceivedList = () => {
         );
       },
     },
-     {
+    {
       accessorKey: "work_order_rc_factory",
       id: "Factory",
       header: "Factory",
       cell: ({ row }) => <div>{row.getValue("Factory")}</div>,
     },
-    {
-      accessorKey: "work_order_rc_no",
-      id: "Work Order Rc No",
-      header: "Work Order No",
-      cell: ({ row }) => <div>{row.getValue("Work Order Rc No")}</div>,
-    },
+    // {
+    //   accessorKey: "work_order_rc_no",
+    //   id: "Work Order Rc No",
+    //   header: "Work Order No",
+    //   cell: ({ row }) => <div>{row.getValue("Work Order Rc No")}</div>,
+    // },
     {
       id: "Work Order Ref",
       header: "Work Order Ref",
@@ -251,7 +251,7 @@ const ReceivedList = () => {
         );
       },
     },
-   
+
     {
       accessorKey: "work_order_rc_brand",
       id: "Brand",
@@ -346,7 +346,7 @@ const ReceivedList = () => {
                       }
                     >
                       {updateStatusMutation.isLoading &&
-                      updatingId === orderReceivedId ? (
+                        updatingId === orderReceivedId ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Truck className="h-4 w-4" />
@@ -416,22 +416,20 @@ const ReceivedList = () => {
             <div className="flex items-center bg-[#F5F2EB] p-1 rounded-xl border border-stone-200/80 gap-1 shrink-0">
               <button
                 type="button"
-                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === "all"
-                    ? "bg-[#A27B5C] text-white shadow-none"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                }`}
+                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === "all"
+                  ? "bg-[#A27B5C] text-white shadow-none"
+                  : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
+                  }`}
                 onClick={() => setStatusFilter("all")}
               >
                 All ({workorderrc?.length || 0})
               </button>
               <button
                 type="button"
-                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === "ontheway"
-                    ? "bg-[#543D2B] text-white shadow-none"
-                    : "text-[#543D2B] hover:bg-[#543D2B]/10"
-                }`}
+                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === "ontheway"
+                  ? "bg-[#543D2B] text-white shadow-none"
+                  : "text-[#543D2B] hover:bg-[#543D2B]/10"
+                  }`}
                 onClick={() =>
                   setStatusFilter(
                     statusFilter === "ontheway" ? "all" : "ontheway",
@@ -442,11 +440,10 @@ const ReceivedList = () => {
               </button>
               <button
                 type="button"
-                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === "packed"
-                    ? "bg-stone-700 text-white shadow-none"
-                    : "text-stone-700 hover:bg-stone-200"
-                }`}
+                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === "packed"
+                  ? "bg-stone-700 text-white shadow-none"
+                  : "text-stone-700 hover:bg-stone-200"
+                  }`}
                 onClick={() =>
                   setStatusFilter(statusFilter === "packed" ? "all" : "packed")
                 }
@@ -455,11 +452,10 @@ const ReceivedList = () => {
               </button>
               <button
                 type="button"
-                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === "received"
-                    ? "bg-green-600 text-white shadow-none"
-                    : "text-green-800 hover:bg-green-50"
-                }`}
+                className={`h-7 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${statusFilter === "received"
+                  ? "bg-green-600 text-white shadow-none"
+                  : "text-green-800 hover:bg-green-50"
+                  }`}
                 onClick={() =>
                   setStatusFilter(
                     statusFilter === "received" ? "all" : "received",
@@ -533,9 +529,9 @@ const ReceivedList = () => {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                     </TableHead>
                   ))}
                 </TableRow>

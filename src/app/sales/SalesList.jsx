@@ -201,7 +201,7 @@ const SalesList = () => {
     {
       accessorKey: "work_order_sa_dc_no",
       id: "Packing Slip No",
-      header: "Packing Slip No",
+      header: "Manual P-Slip No",
       cell: ({ row }) => (
         <span className="text-stone-700">{row.getValue("Packing Slip No")}</span>
       ),

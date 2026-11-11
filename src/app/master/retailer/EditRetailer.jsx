@@ -42,29 +42,60 @@ const retailerSchema = z.object({
   customer_type: z.string().trim().min(1, "Retailer type is required"),
   customer_mobile: z.string()
     .trim()
-    .refine((val) => !val || /^\d{10}$/.test(val), {
-      message: "Mobile number must be exactly 10 digits",
-    }),
+    .min(1, "Mobile number is required")
+    .regex(/^\d{10}$/, "Mobile number must be exactly 10 digits"),
   customer_email: z.string()
     .trim()
+    .optional()
+    .or(z.literal(""))
     .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
       message: "Invalid email format",
     }),
   customer_address: z.string().optional().or(z.literal("")),
+  customer_pincode: z.string()
+    .trim()
+    .min(1, "Pincode is required")
+    .regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
   customer_status: z.string().min(1, "Status is required"),
   company_prefix: z.string().optional().or(z.literal("")),
   company_code: z.string()
     .trim()
     .min(1, "Retailer code is required")
     .regex(/^[A-Za-z0-9]+$/, "Only letters and numbers allowed"),
-  company_gst: z.string()
-    .trim()
-    .min(1, "GST number is required")
-    .regex(/^[A-Za-z0-9]+$/, "Only letters and numbers allowed"),
-  customer_group: z.string().optional().or(z.literal("")),
+  company_gst: z.string().trim().optional().or(z.literal("")),
+  customer_group: z.string().trim().min(1, "Group is required"),
+  customer_transport: z.string().trim().min(1, "Transport is required"),
   customer_referred_by: z.string().optional().or(z.literal("")),
   customer_remarks: z.string().optional().or(z.literal("")),
-})
+  customer_markdown: z.string().optional().or(z.literal("")),
+  customer_discount: z.string().optional().or(z.literal("")),
+  customer_incentive: z.string().optional().or(z.literal("")),
+  customer_days_of_payment: z.string().optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (data.customer_type !== "Individual") {
+    if (!data.company_gst || data.company_gst.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "GST number is required",
+        path: ["company_gst"],
+      });
+    } else if (!/^[A-Za-z0-9]+$/.test(data.company_gst)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Only letters and numbers allowed",
+        path: ["company_gst"],
+      });
+    }
+  } else if (data.company_gst && data.company_gst.trim() !== "") {
+    if (!/^[A-Za-z0-9]+$/.test(data.company_gst)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Only letters and numbers allowed",
+        path: ["company_gst"],
+      });
+    }
+  }
+});
 
 const EditRetailer = () => {
   const { id } = useParams()
@@ -78,12 +109,18 @@ const EditRetailer = () => {
     customer_mobile: "",
     customer_email: "",
     customer_address: "",
+    customer_pincode: "",
     customer_status: "",
     company_prefix: "",
     company_code: "",
     company_gst: "",
     customer_group: "",
     customer_referred_by: "",
+    customer_transport: "",
+    customer_markdown: "",
+    customer_discount: "",
+    customer_incentive: "",
+    customer_days_of_payment: "",
     customer_remarks: ""
   })
 
@@ -177,6 +214,22 @@ const EditRetailer = () => {
       if (validateOnlyDigits(value) && value.length <= 10) {
         setCustomer(prev => ({ ...prev, [name]: value }))
       }
+    } else if (name === "customer_pincode") {
+      if (validateOnlyDigits(value) && value.length <= 6) {
+        setCustomer(prev => ({ ...prev, [name]: value }))
+      }
+    } else if (
+      name === "customer_markdown" ||
+      name === "customer_discount" ||
+      name === "customer_incentive"
+    ) {
+      if (/^\d*\.?\d*$/.test(value)) {
+        setCustomer(prev => ({ ...prev, [name]: value }))
+      }
+    } else if (name === "customer_days_of_payment") {
+      if (validateOnlyDigits(value)) {
+        setCustomer(prev => ({ ...prev, [name]: value }))
+      }
     } else if (name === "customer_name") {
       if (validateOnlyText(value)) {
         setCustomer(prev => ({ ...prev, [name]: value }))
@@ -193,6 +246,9 @@ const EditRetailer = () => {
   const onSelectChange = (name, value) => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }))
+    }
+    if (name === "customer_type" && value === "Individual" && errors.company_gst) {
+      setErrors(prev => ({ ...prev, company_gst: null }))
     }
     setCustomer(prev => ({ ...prev, [name]: value }))
   }
@@ -357,14 +413,14 @@ const EditRetailer = () => {
                 {/* GST Number */}
                 <div className="space-y-1.5">
                   <Label htmlFor="company_gst" className="text-xs font-semibold text-stone-700">
-                    GST Number <span className="text-red-500">*</span>
+                    GST Number {customer.customer_type !== "Individual" && <span className="text-red-500">*</span>}
                   </Label>
                   <Input
                     id="company_gst"
                     name="company_gst"
-                    value={customer.company_gst}
+                    value={customer.company_gst || ""}
                     onChange={onInputChange}
-                    placeholder="Enter GST number"
+                    placeholder={customer.customer_type === "Individual" ? "Enter GST number (Optional)" : "Enter GST number"}
                     className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 uppercase ${
                       errors.company_gst ? "border-destructive" : ""
                     }`}
@@ -372,47 +428,6 @@ const EditRetailer = () => {
                   {errors.company_gst && (
                     <p className="text-xs text-destructive">{errors.company_gst}</p>
                   )}
-                </div>
-
-                {/* Group (Small) & Referred By (Little Large) */}
-                <div className="md:col-span-2 xl:col-span-2 grid grid-cols-1 md:grid-cols-12 gap-6">
-                  <div className="space-y-1.5 md:col-span-5">
-                    <Label htmlFor="customer_group" className="text-xs font-semibold text-stone-700">
-                      Group
-                    </Label>
-                    <Input
-                      id="customer_group"
-                      name="customer_group"
-                      value={customer.customer_group || ""}
-                      onChange={onInputChange}
-                      placeholder="Enter customer group"
-                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
-                        errors.customer_group ? "border-destructive focus-visible:ring-destructive" : ""
-                      }`}
-                    />
-                    {errors.customer_group && (
-                      <p className="text-xs text-destructive">{errors.customer_group}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-7">
-                    <Label htmlFor="customer_referred_by" className="text-xs font-semibold text-stone-700">
-                      Referred By
-                    </Label>
-                    <Input
-                      id="customer_referred_by"
-                      name="customer_referred_by"
-                      value={customer.customer_referred_by || ""}
-                      onChange={onInputChange}
-                      placeholder="Enter referred by"
-                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
-                        errors.customer_referred_by ? "border-destructive focus-visible:ring-destructive" : ""
-                      }`}
-                    />
-                    {errors.customer_referred_by && (
-                      <p className="text-xs text-destructive">{errors.customer_referred_by}</p>
-                    )}
-                  </div>
                 </div>
 
                 {/* Status */}
@@ -440,17 +455,80 @@ const EditRetailer = () => {
                   )}
                 </div>
 
-                {/* Mobile Number, Larger Email, Large Address in one single line */}
+                {/* Group, Transport & Referred By in 12-col grid */}
+                <div className="md:col-span-2 xl:col-span-3 grid grid-cols-1 md:grid-cols-12 gap-6">
+                  {/* Group Field */}
+                  <div className="space-y-1.5 md:col-span-4">
+                    <Label htmlFor="customer_group" className="text-xs font-semibold text-stone-700">
+                      Group <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer_group"
+                      name="customer_group"
+                      value={customer.customer_group || ""}
+                      onChange={onInputChange}
+                      placeholder="Enter customer group"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_group ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
+                    />
+                    {errors.customer_group && (
+                      <p className="text-xs text-destructive">{errors.customer_group}</p>
+                    )}
+                  </div>
+
+                  {/* Transport Field */}
+                  <div className="space-y-1.5 md:col-span-4">
+                    <Label htmlFor="customer_transport" className="text-xs font-semibold text-stone-700">
+                      Transport <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer_transport"
+                      name="customer_transport"
+                      value={customer.customer_transport || ""}
+                      onChange={onInputChange}
+                      placeholder="Enter transport"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_transport ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
+                    />
+                    {errors.customer_transport && (
+                      <p className="text-xs text-destructive">{errors.customer_transport}</p>
+                    )}
+                  </div>
+
+                  {/* Referred By Field */}
+                  <div className="space-y-1.5 md:col-span-4">
+                    <Label htmlFor="customer_referred_by" className="text-xs font-semibold text-stone-700">
+                      Referred By
+                    </Label>
+                    <Input
+                      id="customer_referred_by"
+                      name="customer_referred_by"
+                      value={customer.customer_referred_by || ""}
+                      onChange={onInputChange}
+                      placeholder="Enter referred by"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_referred_by ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
+                    />
+                    {errors.customer_referred_by && (
+                      <p className="text-xs text-destructive">{errors.customer_referred_by}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Number, Email, Pincode & Complete Address */}
                 <div className="md:col-span-2 xl:col-span-3 grid grid-cols-1 md:grid-cols-12 gap-6">
                   {/* Mobile Number */}
-                  <div className="space-y-1.5 md:col-span-3">
+                  <div className="space-y-1.5 md:col-span-4">
                     <Label htmlFor="customer_mobile" className="text-xs font-semibold text-stone-700">
-                      Mobile Number
+                      Mobile Number <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="customer_mobile"
                       name="customer_mobile"
-                      value={customer.customer_mobile}
+                      value={customer.customer_mobile || ""}
                       onChange={onInputChange}
                       placeholder="10-digit mobile"
                       maxLength={10}
@@ -472,7 +550,7 @@ const EditRetailer = () => {
                       id="customer_email"
                       name="customer_email"
                       type="email"
-                      value={customer.customer_email}
+                      value={customer.customer_email || ""}
                       onChange={onInputChange}
                       placeholder="Enter email address"
                       className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
@@ -484,17 +562,101 @@ const EditRetailer = () => {
                     )}
                   </div>
 
-                  {/* Address */}
-                  <div className="space-y-1.5 md:col-span-5">
+                  {/* Pincode Field */}
+                  <div className="space-y-1.5 md:col-span-4">
+                    <Label htmlFor="customer_pincode" className="text-xs font-semibold text-stone-700">
+                      Pincode <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customer_pincode"
+                      name="customer_pincode"
+                      value={customer.customer_pincode || ""}
+                      onChange={onInputChange}
+                      placeholder="6-digit pincode"
+                      maxLength={6}
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_pincode ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
+                    />
+                    {errors.customer_pincode && (
+                      <p className="text-xs text-destructive">{errors.customer_pincode}</p>
+                    )}
+                  </div>
+
+                  {/* Complete Address */}
+                  <div className="space-y-1.5 md:col-span-12">
                     <Label htmlFor="customer_address" className="text-xs font-semibold text-stone-700">
                       Complete Address
                     </Label>
                     <Input
                       id="customer_address"
                       name="customer_address"
-                      value={customer.customer_address}
+                      value={customer.customer_address || ""}
                       onChange={onInputChange}
                       placeholder="Enter complete address"
+                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Commercial Terms: Markdown, Discount, Incentive, Days of Payment */}
+                <div className="md:col-span-2 xl:col-span-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                  {/* Markdown */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customer_markdown" className="text-xs font-semibold text-stone-700">
+                      Markdown (%)
+                    </Label>
+                    <Input
+                      id="customer_markdown"
+                      name="customer_markdown"
+                      value={customer.customer_markdown || ""}
+                      onChange={onInputChange}
+                      placeholder="e.g. 10"
+                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                    />
+                  </div>
+
+                  {/* Discount */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customer_discount" className="text-xs font-semibold text-stone-700">
+                      Discount (%)
+                    </Label>
+                    <Input
+                      id="customer_discount"
+                      name="customer_discount"
+                      value={customer.customer_discount || ""}
+                      onChange={onInputChange}
+                      placeholder="e.g. 5"
+                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                    />
+                  </div>
+
+                  {/* Incentive */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customer_incentive" className="text-xs font-semibold text-stone-700">
+                      Incentive (%)
+                    </Label>
+                    <Input
+                      id="customer_incentive"
+                      name="customer_incentive"
+                      value={customer.customer_incentive || ""}
+                      onChange={onInputChange}
+                      placeholder="e.g. 2"
+                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                    />
+                  </div>
+
+                  {/* Days of Payment */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customer_days_of_payment" className="text-xs font-semibold text-stone-700">
+                      Days of Payment
+                    </Label>
+                    <Input
+                      id="customer_days_of_payment"
+                      name="customer_days_of_payment"
+                      value={customer.customer_days_of_payment || ""}
+                      onChange={onInputChange}
+                      placeholder="e.g. 30"
                       className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
                     />
                   </div>
