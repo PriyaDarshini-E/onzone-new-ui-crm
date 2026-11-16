@@ -422,7 +422,7 @@ const CreateWorkOrder = () => {
     return <LoaderComponent name=" Data" />;
   }
   return (
-    <Page>
+    <Page defaultCollapsed={true}>
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-center md:text-left md:text-xl">
           Create Work Order

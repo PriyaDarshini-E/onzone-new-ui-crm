@@ -144,10 +144,16 @@ const OrderReceivedList = () => {
       },
     },
     {
-      accessorKey: "work_order_rc_no",
       id: "Work Order Rc No",
       header: "Work Order Rc No",
-      cell: ({ row }) => <div>{row.getValue("Work Order Rc No")}</div>,
+      accessorFn: (row) => {
+        const val = row?.work_order_rc_no;
+        if (!val && val !== 0) return "-";
+        const str = String(val).trim();
+        if (!str || str === "-") return "-";
+        return /^REC\/OZ\//i.test(str) ? str.toUpperCase() : `REC/OZ/${str}`;
+      },
+      cell: ({ getValue }) => <div>{getValue()}</div>,
     },
     {
       id: "Work Order Ref",

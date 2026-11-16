@@ -66,10 +66,30 @@ const retailerSchema = z.object({
     .trim()
     .min(1, "Pincode is required")
     .regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
-  customer_markdown: z.string().optional().or(z.literal("")),
-  customer_discount: z.string().optional().or(z.literal("")),
-  customer_incentive: z.string().optional().or(z.literal("")),
-  customer_days_of_payment: z.string().optional().or(z.literal("")),
+  customer_markdown: z.union([z.string(), z.number()])
+    .transform((val) => String(val).trim())
+    .refine((val) => val.length > 0, { message: "Markdown is required" })
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+      message: "Must be a valid positive number",
+    }),
+  customer_discount: z.union([z.string(), z.number()])
+    .transform((val) => String(val).trim())
+    .refine((val) => val.length > 0, { message: "Discount is required" })
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+      message: "Must be a valid positive number",
+    }),
+  customer_incentive: z.union([z.string(), z.number()])
+    .transform((val) => String(val).trim())
+    .refine((val) => val.length > 0, { message: "Incentive is required" })
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+      message: "Must be a valid positive number",
+    }),
+  customer_days_of_payment: z.union([z.string(), z.number()])
+    .transform((val) => String(val).trim())
+    .refine((val) => val.length > 0, { message: "Days of payment is required" })
+    .refine((val) => /^\d+$/.test(val), {
+      message: "Must be a valid number of days",
+    }),
   company_prefix: z.string().optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
   if (data.customer_type !== "Individual") {
@@ -532,7 +552,7 @@ const AddRetailer = () => {
                   {/* Markdown */}
                   <div className="space-y-1.5">
                     <Label htmlFor="customer_markdown" className="text-xs font-semibold text-stone-700">
-                      Markdown (%)
+                      Markdown (%) <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="customer_markdown"
@@ -540,14 +560,19 @@ const AddRetailer = () => {
                       value={customer.customer_markdown}
                       onChange={onInputChange}
                       placeholder="e.g. 10"
-                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_markdown ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
                     />
+                    {errors.customer_markdown && (
+                      <p className="text-xs text-destructive">{errors.customer_markdown}</p>
+                    )}
                   </div>
 
                   {/* Discount */}
                   <div className="space-y-1.5">
                     <Label htmlFor="customer_discount" className="text-xs font-semibold text-stone-700">
-                      Discount (%)
+                      Discount (%) <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="customer_discount"
@@ -555,14 +580,19 @@ const AddRetailer = () => {
                       value={customer.customer_discount}
                       onChange={onInputChange}
                       placeholder="e.g. 5"
-                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_discount ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
                     />
+                    {errors.customer_discount && (
+                      <p className="text-xs text-destructive">{errors.customer_discount}</p>
+                    )}
                   </div>
 
                   {/* Incentive */}
                   <div className="space-y-1.5">
                     <Label htmlFor="customer_incentive" className="text-xs font-semibold text-stone-700">
-                      Incentive (%)
+                      Incentive (%) <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="customer_incentive"
@@ -570,14 +600,19 @@ const AddRetailer = () => {
                       value={customer.customer_incentive}
                       onChange={onInputChange}
                       placeholder="e.g. 2"
-                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_incentive ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
                     />
+                    {errors.customer_incentive && (
+                      <p className="text-xs text-destructive">{errors.customer_incentive}</p>
+                    )}
                   </div>
 
                   {/* Days of Payment */}
                   <div className="space-y-1.5">
                     <Label htmlFor="customer_days_of_payment" className="text-xs font-semibold text-stone-700">
-                      Days of Payment
+                      Days of Payment <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="customer_days_of_payment"
@@ -585,8 +620,13 @@ const AddRetailer = () => {
                       value={customer.customer_days_of_payment}
                       onChange={onInputChange}
                       placeholder="e.g. 30"
-                      className="bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800"
+                      className={`bg-white border-stone-200 focus:border-[#A27B5C] focus:ring-[#A27B5C]/20 rounded-xl text-stone-800 ${
+                        errors.customer_days_of_payment ? "border-destructive focus-visible:ring-destructive" : ""
+                      }`}
                     />
+                    {errors.customer_days_of_payment && (
+                      <p className="text-xs text-destructive">{errors.customer_days_of_payment}</p>
+                    )}
                   </div>
                 </div>
 

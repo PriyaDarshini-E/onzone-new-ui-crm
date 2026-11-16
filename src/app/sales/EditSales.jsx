@@ -509,6 +509,64 @@ const EditSales = () => {
     (workorder.work_order_sa_pcs !== debouncedPcs &&
       parseInt(workorder.work_order_sa_pcs, 10) > 0);
 
+  // Fetch finished stock to validate barcode existence and total_received limits
+  const { data: finalStockData = [] } = useQuery({
+    queryKey: ["finalStock"],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${BASE_URL}/api/fetch-work-order-final-stock-list`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      return (
+        response?.data?.finalStock ||
+        response?.data?.data ||
+        (Array.isArray(response?.data) ? response.data : [])
+      );
+    },
+    staleTime: 60 * 1000,
+  });
+
+  // Fast lookup map for finished stock by T-Code barcode
+  const stockMap = useMemo(() => {
+    const map = new Map();
+    if (!Array.isArray(finalStockData)) return map;
+    finalStockData.forEach((item) => {
+      const code = (item.work_order_rc_sub_barcode || item.barcode || "")
+        .trim()
+        .toUpperCase();
+      if (!code) return;
+      const received = Number(item.total_received) || 0;
+      const sales = Number(item.total_sales) || 0;
+      const salesReturn = Number(item.total_sales_return) || 0;
+      const balance = received - sales + salesReturn;
+
+      // The API's values are already aggregate totals for this barcode.
+      // Do not sum duplicate rows for the same barcode.
+      if (!map.has(code)) {
+        map.set(code, {
+          barcode: code,
+          total_received: received,
+          total_sales: sales,
+          total_sales_return: salesReturn,
+          balance: balance,
+          brand: item.work_order_sub_brand || "",
+        });
+      } else {
+        const existing = map.get(code);
+        if (received > existing.total_received) {
+          existing.total_received = received;
+          existing.total_sales = sales;
+          existing.total_sales_return = salesReturn;
+          existing.balance = balance;
+        }
+      }
+    });
+    return map;
+  }, [finalStockData]);
+
   const boxCombos = useMemo(() => {
     if (apiBoxCombo) {
       const parsed = parseBoxCombinationResponse(apiBoxCombo);
@@ -578,7 +636,7 @@ const EditSales = () => {
       return;
     }
 
-    const barcode = currentInputValue.trim();
+    const barcode = currentInputValue.trim().toUpperCase();
     if (barcode.length < 4) {
       toast({
         title: "Invalid format",
@@ -586,6 +644,40 @@ const EditSales = () => {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check Finished Stock validation: existence, balance, and total_received limit
+    if (stockMap.size > 0) {
+      const stockItem = stockMap.get(barcode);
+      if (!stockItem) {
+        toast({
+          title: "T-Code Not in Finished Stock",
+          description: `T-Code "${barcode}" was not found in finished stock.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (stockItem.balance <= 0) {
+        toast({
+          title: "Out of Stock",
+          description: `T-Code "${barcode}" has no available stock (Balance: 0, Received: ${stockItem.total_received}, Sales: ${stockItem.total_sales}).`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentCount = items.filter(
+        (it) => (it.barcode || "").toUpperCase() === barcode
+      ).length;
+      if (currentCount >= stockItem.balance) {
+        toast({
+          title: "Balance Limit Exceeded",
+          description: `Cannot add more "${barcode}". Available balance is ${stockItem.balance} pcs (Received: ${stockItem.total_received}, Sales: ${stockItem.total_sales}, Already added: ${currentCount}).`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setLoading(true);
@@ -608,9 +700,16 @@ const EditSales = () => {
         setItems((prev) => [...prev, { id: null, barcode }]);
         setCurrentInputValue("");
 
+        const stockItem = stockMap.get(barcode);
+        const currentCount =
+          items.filter((it) => (it.barcode || "").toUpperCase() === barcode).length + 1;
+        const stockInfo = stockItem
+          ? ` (${currentCount}/${stockItem.balance} bal, rec: ${stockItem.total_received})`
+          : "";
+
         toast({
           title: "T-Code Verified",
-          description: `Barcode ${barcode} added to sales dispatch.`,
+          description: `Barcode ${barcode} added to sales dispatch${stockInfo}.`,
           variant: "default",
         });
 
@@ -646,8 +745,57 @@ const EditSales = () => {
   const handleAddBoxItems = ({ barcodes: newBarcodes, boxLabel, totalPcs, orderRef, boxCount }) => {
     if (!newBarcodes || newBarcodes.length === 0) return;
 
+    // Validate against finished stock balance and total_received limits
+    const validBarcodes = [];
+    const exceededBarcodes = [];
+    const notFoundBarcodes = [];
+
+    const tempCounts = {};
+    items.forEach((it) => {
+      const code = (it.barcode || "").toUpperCase();
+      tempCounts[code] = (tempCounts[code] || 0) + 1;
+    });
+
+    for (const rawCode of newBarcodes) {
+      const code = (rawCode || "").trim().toUpperCase();
+      if (!code) continue;
+
+      if (stockMap.size > 0) {
+        const stockItem = stockMap.get(code);
+        if (!stockItem) {
+          notFoundBarcodes.push(code);
+          continue;
+        }
+        const cur = tempCounts[code] || 0;
+        if (cur >= stockItem.balance) {
+          exceededBarcodes.push(code);
+          continue;
+        }
+        tempCounts[code] = cur + 1;
+      }
+      validBarcodes.push(code);
+    }
+
+    if (notFoundBarcodes.length > 0) {
+      toast({
+        title: "T-Codes Not in Finished Stock",
+        description: `Skipped ${notFoundBarcodes.length} barcode(s) not found in finished stock.`,
+        variant: "destructive",
+      });
+    }
+
+    if (exceededBarcodes.length > 0) {
+      toast({
+        title: "Stock Limit Exceeded",
+        description: `Skipped ${exceededBarcodes.length} barcode(s) exceeding available balance stock.`,
+        variant: "destructive",
+      });
+    }
+
+    if (validBarcodes.length === 0) return;
+
     const currentPcs = parseInt(workorder.work_order_sa_pcs, 10) || 0;
-    const newItems = newBarcodes.map((b) => ({ id: null, barcode: b.trim() }));
+    const newItems = validBarcodes.map((b) => ({ id: null, barcode: b }));
     const updatedItems = [...items, ...newItems];
     setItems(updatedItems);
 
@@ -663,7 +811,7 @@ const EditSales = () => {
 
     toast({
       title: "Box Items Added",
-      description: `Added ${newBarcodes.length} T-Code barcodes from ${boxLabel} (${orderRef}). Total: ${updatedItems.length} pcs.`,
+      description: `Added ${validBarcodes.length} T-Code barcodes from ${boxLabel} (${orderRef}). Total: ${updatedItems.length} pcs.`,
       variant: "default",
     });
   };
@@ -694,9 +842,26 @@ const EditSales = () => {
         });
         return;
       }
+
+      const normalized = barcodeToAdd.toUpperCase();
+      const stockItem = stockMap.get(normalized);
+      if (stockItem) {
+        const currentCount = items.filter(
+          (it) => (it.barcode || "").toUpperCase() === normalized
+        ).length;
+        if (currentCount >= stockItem.balance) {
+          toast({
+            title: "Balance Limit Exceeded",
+            description: `Cannot add more "${barcodeToAdd}". Available balance is ${stockItem.balance} pcs.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       setItems((prev) => [...prev, { id: null, barcode: barcodeToAdd }]);
     },
-    [items.length, maxPcs, toast]
+    [items, maxPcs, stockMap, toast]
   );
 
   // Remove all pieces of this barcode (local state only; queues DB IDs for deletion upon Update)
@@ -1264,6 +1429,9 @@ const EditSales = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
                 {uniqueBarcodes.map((item) => {
                   const isLimitReached = items.length >= maxPcs;
+                  const stockItem = stockMap.get(item.barcode.toUpperCase());
+                  const maxAllowed = stockItem?.balance;
+                  const isStockLimitReached = maxAllowed !== undefined && item.count >= maxAllowed;
 
                   return (
                     <div
@@ -1274,16 +1442,31 @@ const EditSales = () => {
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#543D2B]/10 text-[10px] font-bold text-[#543D2B]">
                           {item.index}
                         </span>
-                        <span className="font-mono font-bold truncate text-xs text-stone-800" title={item.barcode}>
-                          {item.barcode}
-                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-mono font-bold truncate text-xs text-stone-800" title={item.barcode}>
+                            {item.barcode}
+                          </span>
+                          {stockItem && (
+                            <span className="text-[10px] text-stone-500 font-medium">
+                              Bal: <strong className={stockItem.balance > 0 ? "text-emerald-700 font-bold" : "text-rose-600 font-bold"}>{stockItem.balance}</strong>
+                              <span className="text-stone-300 mx-0.5">/</span>
+                              Rec: <strong className="text-stone-700">{stockItem.total_received}</strong>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 pl-1.5 shrink-0">
                         {/* Multiplier Badge */}
                         <span
-                          className="rounded-md bg-[#543D2B] text-white px-2 py-0.5 text-[11px] font-extrabold tracking-tight shadow-2xs"
-                          title={`${item.count} piece${item.count > 1 ? "s" : ""}`}
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-extrabold tracking-tight shadow-2xs ${
+                            isStockLimitReached
+                              ? "bg-amber-700 text-white"
+                              : "bg-[#543D2B] text-white"
+                          }`}
+                          title={`${item.count} piece${item.count > 1 ? "s" : ""}${
+                            stockItem ? ` / max balance ${stockItem.balance} (rec: ${stockItem.total_received})` : ""
+                          }`}
                         >
                           *{item.count}
                         </span>
@@ -1301,9 +1484,15 @@ const EditSales = () => {
                           <button
                             type="button"
                             onClick={() => addOneBarcode(item.barcode)}
-                            disabled={isLimitReached}
+                            disabled={isLimitReached || isStockLimitReached}
                             className="flex h-5 w-5 items-center justify-center rounded-md text-stone-600 hover:bg-white hover:text-stone-900 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                            title={isLimitReached ? "Target pieces count reached" : "Increase count by 1"}
+                            title={
+                              isStockLimitReached
+                                ? `Reached available balance limit (${maxAllowed} pcs)`
+                                : isLimitReached
+                                ? "Target pieces count reached"
+                                : "Increase count by 1"
+                            }
                           >
                             <Plus className="h-3 w-3" />
                           </button>
