@@ -352,7 +352,11 @@ const ReceivedReport = () => {
                           }`}
                         >
                           <TableCell className="text-center font-mono font-semibold text-stone-800 border-r border-stone-100">
-                            {order.work_order_rc_no}
+                            {order.work_order_rc_no
+                              ? /^REC\/OZ\//i.test(String(order.work_order_rc_no).trim())
+                                ? String(order.work_order_rc_no).trim().toUpperCase()
+                                : `REC/OZ/${String(order.work_order_rc_no).trim()}`
+                              : "-"}
                           </TableCell>
                           <TableCell className="text-center text-stone-600 border-r border-stone-100">
                             {moment(order.work_order_rc_date).format("DD-MM-YYYY")}

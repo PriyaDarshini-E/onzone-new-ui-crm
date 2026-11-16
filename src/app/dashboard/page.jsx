@@ -26,16 +26,48 @@ import {
   User,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import ChangePassword from "@/app/auth/ChangePassword";
 import Profile from "@/app/auth/Profile";
 
 // eslint-disable-next-line react/prop-types
-export default function Page({ children }) {
+export default function Page({ children, defaultCollapsed }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isHomePage = location.pathname === "/home" || location.pathname === "/";
   const userName = localStorage.getItem("name") || "Admin";
+
+  const isWorkOrderCreateOrEdit =
+    defaultCollapsed !== undefined
+      ? defaultCollapsed
+      : location.pathname.includes("create-work-order") ||
+        location.pathname.includes("edit-work-order");
+
+  // On create/edit work order, start collapsed (icon-only mode) so wide order items tables have full space.
+  // On all other pages, respect normal sidebar state (default open).
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (isWorkOrderCreateOrEdit) {
+      return false;
+    }
+    const stored = localStorage.getItem("sidebar:state");
+    return stored !== null ? JSON.parse(stored) : true;
+  });
+
+  useEffect(() => {
+    if (isWorkOrderCreateOrEdit) {
+      setSidebarOpen(false);
+    } else {
+      const stored = localStorage.getItem("sidebar:state");
+      setSidebarOpen(stored !== null ? JSON.parse(stored) : true);
+    }
+  }, [isWorkOrderCreateOrEdit, location.pathname]);
+
+  const handleSidebarOpenChange = (newOpen) => {
+    setSidebarOpen(newOpen);
+    if (!isWorkOrderCreateOrEdit) {
+      localStorage.setItem("sidebar:state", JSON.stringify(newOpen));
+    }
+  };
 
   const [open, setOpen] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
@@ -61,7 +93,7 @@ export default function Page({ children }) {
   }, []);
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-stone-200/80 bg-white px-4 sm:px-6 md:px-8">

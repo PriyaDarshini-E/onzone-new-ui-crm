@@ -194,17 +194,33 @@ const ReceivedList = () => {
 
   // ----- columns definition -----
   const columns = [
+    // {
+    //   id: "sl_no",
+    //   header: "Sl. No.",
+    //   cell: ({ row, table }) => {
+    //     const { pageIndex, pageSize } = table.getState().pagination;
+    //     return (
+    //       <span className="font-semibold text-stone-700 text-xs">
+    //         {pageIndex * pageSize + row.index + 1}
+    //       </span>
+    //     );
+    //   },
+    // },
     {
-      id: "sl_no",
-      header: "Sl. No.",
-      cell: ({ row, table }) => {
-        const { pageIndex, pageSize } = table.getState().pagination;
-        return (
-          <span className="font-semibold text-stone-700 text-xs">
-            {pageIndex * pageSize + row.index + 1}
-          </span>
-        );
+      id: "RC No",
+      header: "RC No",
+      accessorFn: (row) => {
+        const val = row?.work_order_rc_no;
+        if (!val && val !== 0) return "-";
+        const str = String(val).trim();
+        if (!str || str === "-") return "-";
+        return /^REC\/OZ\//i.test(str) ? str.toUpperCase() : `REC/OZ/${str}`;
       },
+      cell: ({ getValue }) => (
+        <span className="font-semibold text-stone-800">
+          {getValue()}
+        </span>
+      ),
     },
     {
       accessorKey: "work_order_rc_factory",
@@ -212,12 +228,6 @@ const ReceivedList = () => {
       header: "Factory",
       cell: ({ row }) => <div>{row.getValue("Factory")}</div>,
     },
-    // {
-    //   accessorKey: "work_order_rc_no",
-    //   id: "Work Order Rc No",
-    //   header: "Work Order No",
-    //   cell: ({ row }) => <div>{row.getValue("Work Order Rc No")}</div>,
-    // },
     {
       id: "Work Order Ref",
       header: "Work Order Ref",
@@ -252,12 +262,12 @@ const ReceivedList = () => {
       },
     },
 
-    {
-      accessorKey: "work_order_rc_brand",
-      id: "Brand",
-      header: "Brand",
-      cell: ({ row }) => <div>{row.getValue("Brand")}</div>,
-    },
+    // {
+    //   accessorKey: "work_order_rc_brand",
+    //   id: "Brand",
+    //   header: "Brand",
+    //   cell: ({ row }) => <div>{row.getValue("Brand")}</div>,
+    // },
     {
       accessorKey: "work_order_rc_status",
       id: "Status",
@@ -322,7 +332,7 @@ const ReceivedList = () => {
                     <ReceiptText className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Packing Receipt</TooltipContent>
+                <TooltipContent>View</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
@@ -613,7 +623,11 @@ const ReceivedList = () => {
             <DialogDescription className="text-stone-600 text-xs">
               Do you want to change the status of order{" "}
               {confirmOrderRcNo ? (
-                <strong className="text-stone-800">{confirmOrderRcNo}</strong>
+                <strong className="text-stone-800">
+                  {/^REC\/OZ\//i.test(String(confirmOrderRcNo))
+                    ? confirmOrderRcNo
+                    : `REC/OZ/${confirmOrderRcNo}`}
+                </strong>
               ) : (
                 "this order"
               )}{" "}

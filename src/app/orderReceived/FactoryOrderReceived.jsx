@@ -366,7 +366,7 @@ const FactoryOrderReceived = () => {
 
   // ======================== RENDER ========================
   return (
-    <Page>
+    <Page defaultCollapsed={true}>
       <div className="max-w-full mx-auto">
         {/* ---------- Step indicator ---------- */}
         <div className="flex items-center justify-center mb-4">
