@@ -282,6 +282,25 @@ const DcReceiptReceived = () => {
     };
   };
 
+  // Helper to get total pieces/quantity for a specific box
+  const getBoxQuantity = (boxNumber) => {
+    if (boxNumber === undefined || boxNumber === null) return 0;
+    const strBox = String(boxNumber).trim();
+    if (groupedBoxesForDialog[strBox]?.totalPcs) {
+      return Number(groupedBoxesForDialog[strBox].totalPcs);
+    }
+    const rows = groupedRows[strBox] || [];
+    if (rows.length > 0) {
+      return rows.reduce((sum, r) => sum + (Number(r.quantity) || 1), 0);
+    }
+    const savedStr = localStorage.getItem(`box_baseline_${id}_${strBox}`);
+    if (savedStr) {
+      const parsed = parseInt(savedStr, 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+  };
+
   const generateFactoryCode = (factoryName) => {
     if (!factoryName) return "";
     return factoryName
@@ -590,11 +609,18 @@ const DcReceiptReceived = () => {
       const workOrderRcRef =
         workOrder?.work_order_rc_ref || workOrder?.work_order_rc_id || id;
 
+      const totalBoxQty = getBoxQuantity(boxNumber);
+      const limitQty =
+        breakdown?.matched > 0
+          ? breakdown.matched
+          : (breakdown?.expected || totalBoxQty);
+
       const response = await axios.put(
         `${BASE_URL}/api/update-work-orders-received-status-box`,
         {
           box: boxNumber,
           work_order_rc_ref: workOrderRcRef,
+          limit: limitQty,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -653,9 +679,11 @@ const DcReceiptReceived = () => {
       const token = localStorage.getItem("token");
       const workOrderRcRef =
         workOrder?.work_order_rc_ref || workOrder?.work_order_rc_id || id;
+      const boxQty = getBoxQuantity(boxNumber);
       const payload = {
         box: boxNumber,
         work_order_rc_ref: workOrderRcRef,
+        limit: boxQty,
       };
 
       const response = await axios.put(
@@ -738,9 +766,11 @@ const DcReceiptReceived = () => {
         workOrder?.work_order_rc_ref || workOrder?.work_order_rc_id || id;
 
       const promises = boxesToUpdate.map((boxNumber) => {
+        const boxQty = getBoxQuantity(boxNumber);
         const payload = {
           box: boxNumber,
           work_order_rc_ref: workOrderRcRef,
+          limit: boxQty,
         };
         return axios.put(
           `${BASE_URL}/api/update-work-orders-received-status-box`,
@@ -867,9 +897,11 @@ const DcReceiptReceived = () => {
     mutationFn: async (boxNumber) => {
       const token = localStorage.getItem("token");
       const workOrderRcRef = workOrder?.work_order_rc_ref || id;
+      const boxQty = getBoxQuantity(boxNumber);
       const payload = {
         box: boxNumber,
         work_order_rc_ref: workOrderRcRef,
+        limit: boxQty,
       };
 
       const response = await axios.put(
@@ -919,9 +951,11 @@ const DcReceiptReceived = () => {
       const workOrderRcRef = workOrder?.work_order_rc_ref || id;
 
       const promises = boxesToUpdate.map((boxNumber) => {
+        const boxQty = getBoxQuantity(boxNumber);
         const payload = {
           box: boxNumber,
           work_order_rc_ref: workOrderRcRef,
+          limit: boxQty,
         };
         return axios.put(
           `${BASE_URL}/api/update-work-orders-notreceived-status-box`,
